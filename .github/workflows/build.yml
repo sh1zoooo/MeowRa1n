@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
@@ -24,8 +27,6 @@ jobs:
       - name: Install iOS 16.5 SDK
         run: |
           git clone --depth=1 https://github.com/theos/sdks.git /tmp/theos-sdks
-          echo "Available SDKs:"
-          ls /tmp/theos-sdks/*.sdk 2>/dev/null || ls /tmp/theos-sdks/
           cp -r /tmp/theos-sdks/iPhoneOS16.5.sdk $HOME/theos/sdks/
 
       - name: Build
@@ -33,23 +34,40 @@ jobs:
           export THEOS=$HOME/theos
           make package FINALPACKAGE=1 STRIP=1 2>&1
 
-      - name: Upload artifact
+      - name: Package as IPA
+        run: |
+          echo "=== Build output ==="
+          find . -name "*.app" -o -name "*.deb" -o -name "*.ipa" 2>/dev/null | grep -v ".git"
+          
+          # Theos кладёт .app в .theos/obj/
+          APP=$(find . -name "MeowRa1n.app" | head -1)
+          if [ -n "$APP" ]; then
+            mkdir -p Payload
+            cp -r "$APP" Payload/
+            zip -r MeowRa1n.ipa Payload/
+            echo "✅ IPA created: MeowRa1n.ipa"
+          else
+            echo "⚠️ .app not found, listing all build artifacts:"
+            find . -name "*.deb" | head -10
+          fi
+
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: MeowRa1n-IPA
           path: |
-            packages/*.ipa
+            MeowRa1n.ipa
             packages/*.deb
           if-no-files-found: warn
 
       - name: Create Release
-        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: "MeowRa1n v1.0.${{ github.run_number }}"
+          body: "iOS 17.4 – 26.2 Beta 1 jailbreak demo"
           files: |
-            packages/*.ipa
+            MeowRa1n.ipa
             packages/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
