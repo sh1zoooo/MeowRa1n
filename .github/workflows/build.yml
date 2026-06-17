@@ -34,7 +34,7 @@ jobs:
           export THEOS=$HOME/theos
           make package FINALPACKAGE=1 STRIP=1 2>&1
 
-      - name: Extract .deb and create IPA
+      - name: Create IPA from .deb
         run: |
           DEB=$(find packages/ -name "*.deb" | head -1)
           echo "Found deb: $DEB"
@@ -42,16 +42,25 @@ jobs:
           mkdir -p /tmp/deb-extract
           dpkg-deb -x "$DEB" /tmp/deb-extract
 
-          echo "=== Contents of extracted deb ==="
+          echo "=== Extracted contents ==="
           find /tmp/deb-extract -type f
 
-          APP=$(find /tmp/deb-extract -name "*.app" -type d | head -1)
-          echo "Found .app: $APP"
+          APP=$(find /tmp/deb-extract -name "MeowRa1n.app" -type d | head -1)
+          echo "App bundle: $APP"
+
+          # Если Info.plist не попал через layout — добавляем руками
+          if [ ! -f "$APP/Info.plist" ]; then
+            echo "⚠️ Info.plist missing, injecting manually..."
+            cp layout/Applications/MeowRa1n.app/Info.plist "$APP/Info.plist"
+          fi
+
+          echo "=== Final .app contents ==="
+          ls -la "$APP/"
 
           mkdir -p Payload
           cp -r "$APP" Payload/
           zip -r MeowRa1n.ipa Payload/
-          echo "✅ IPA size: $(du -sh MeowRa1n.ipa)"
+          echo "✅ IPA: $(du -sh MeowRa1n.ipa)"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
