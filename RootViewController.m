@@ -95,13 +95,17 @@
     [self.view addSubview:sub];
 
     // ── Карточка по центру ────────────────────────────────
-    CGFloat cardW = W - 40;
-    CGFloat cardH = 240;
-    CGFloat cardX = 20;
+    CGFloat fontSize  = 18.0;
+    CGFloat rowHeight = 44.0;
+    CGFloat cardPadV  = 14.0;
+    NSInteger rowCount = 5;
+    CGFloat cardW = W - 50;
+    CGFloat cardH = rowHeight * rowCount + cardPadV * 2;
+    CGFloat cardX = 25;
     CGFloat cardY = (H - cardH) / 2.0;
 
     self.infoCard = [[UIView alloc] initWithFrame:CGRectMake(cardX, cardY, cardW, cardH)];
-    self.infoCard.backgroundColor = [UIColor colorWithRed:0.624 green:0.624 blue:0.624 alpha:0.22]; // #9F9F9F ~22%
+    self.infoCard.backgroundColor = [UIColor colorWithRed:0.624 green:0.624 blue:0.624 alpha:0.22]; // #9F9F9F 22%
     self.infoCard.layer.cornerRadius = 22;
     self.infoCard.layer.masksToBounds = NO;
     self.infoCard.layer.shadowColor   = [UIColor colorWithRed:0.624 green:0.624 blue:0.624 alpha:1.0].CGColor;
@@ -110,37 +114,25 @@
     self.infoCard.layer.shadowOpacity = 0.30;
     [self.view addSubview:self.infoCard];
 
-    // ── Строки карточки — всё в одну строку слева ─────────
-    // "• Device:" серый + "iPhone 14 Pro" белый → через NSAttributedString
+    // ── Строки карточки ───────────────────────────────────
     NSArray *keys = @[@"Device:", @"iOS:", @"Model:", @"Chip:", @"Jailbreak:"];
     NSArray *tags = @[@100, @101, @102, @103, @104];
-    CGFloat rowH  = cardH / 5.0;
 
     UIColor *keyColor = [UIColor colorWithRed:0.851 green:0.851 blue:0.851 alpha:1.0]; // #D9D9D9
-    UIFont  *rowFont  = [UIFont systemFontOfSize:16 weight:UIFontWeightLight];
+    UIFont  *rowFont  = [UIFont systemFontOfSize:fontSize weight:UIFontWeightRegular];
 
     for (int i = 0; i < 5; i++) {
-        CGFloat rowY = i * rowH + (rowH - 24) / 2.0;
+        CGFloat rowY = cardPadV + i * rowHeight + (rowHeight - fontSize - 4) / 2.0;
 
-        // Одна строка: "• Device: " серым + значение белым через attributed string
-        UILabel *rowLabel = [[UILabel alloc] initWithFrame:CGRectMake(22, rowY, cardW - 44, 24)];
+        UILabel *rowLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, rowY, cardW - 40, fontSize + 4)];
         rowLabel.tag = [tags[i] integerValue];
-        rowLabel.font = rowFont;
 
-        // Базовый текст — ключ серый
         NSMutableAttributedString *attr = [[NSMutableAttributedString alloc]
             initWithString:[NSString stringWithFormat:@"• %@  ", keys[i]]
-                attributes:@{
-                    NSForegroundColorAttributeName: keyColor,
-                    NSFontAttributeName: rowFont
-                }];
-        // Значение — белое, placeholder
+                attributes:@{NSForegroundColorAttributeName: keyColor, NSFontAttributeName: rowFont}];
         [attr appendAttributedString:[[NSAttributedString alloc]
             initWithString:@"..."
-                attributes:@{
-                    NSForegroundColorAttributeName: [UIColor whiteColor],
-                    NSFontAttributeName: rowFont
-                }]];
+                attributes:@{NSForegroundColorAttributeName: [UIColor whiteColor], NSFontAttributeName: rowFont}]];
         rowLabel.attributedText = attr;
         [self.infoCard addSubview:rowLabel];
     }
@@ -195,7 +187,7 @@
     NSInteger idx = [tagList indexOfObject:@(tag)];
     NSString *keyStr = idx != NSNotFound ? keyNames[idx] : @"";
 
-    UIFont  *rowFont  = [UIFont systemFontOfSize:16 weight:UIFontWeightLight];
+    UIFont  *rowFont  = [UIFont systemFontOfSize:18 weight:UIFontWeightRegular];
     UIColor *keyColor = [UIColor colorWithRed:0.851 green:0.851 blue:0.851 alpha:1.0];
 
     NSMutableAttributedString *attr = [[NSMutableAttributedString alloc]
