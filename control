@@ -1,0 +1,9 @@
+Package: com.sh1zoooo.meowra1n
+Name: MeowRa1n
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: Jailbreak tool for iOS 17.4 - 26.2 Beta 1
+Maintainer: sh1zoooo
+Author: sh1zoooo
+Section: System
+Tag: role::hacker
