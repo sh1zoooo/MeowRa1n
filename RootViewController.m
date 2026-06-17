@@ -28,10 +28,13 @@
     CAGradientLayer *gradient = [CAGradientLayer layer];
     gradient.frame = self.view.bounds;
     // Снизу #030303 → сверху #3E3E3E
+    // Плавный градиент: сверху #3E3E3E, переход растянут через середину, снизу #030303
     gradient.colors = @[
-        (id)[UIColor colorWithRed:0.243 green:0.243 blue:0.243 alpha:1.0].CGColor, // #3E3E3E сверху
-        (id)[UIColor colorWithRed:0.012 green:0.012 blue:0.012 alpha:1.0].CGColor  // #030303 снизу
+        (id)[UIColor colorWithRed:0.243 green:0.243 blue:0.243 alpha:1.0].CGColor, // #3E3E3E
+        (id)[UIColor colorWithRed:0.165 green:0.165 blue:0.165 alpha:1.0].CGColor, // средина
+        (id)[UIColor colorWithRed:0.012 green:0.012 blue:0.012 alpha:1.0].CGColor  // #030303
     ];
+    gradient.locations = @[@0.0, @0.55, @1.0];
     gradient.startPoint = CGPointMake(0.5, 0.0);
     gradient.endPoint   = CGPointMake(0.5, 1.0);
     [self.view.layer insertSublayer:gradient atIndex:0];
@@ -95,7 +98,7 @@
     CGFloat cardY      = (H - cardH) / 2.0;
 
     self.infoCard = [[UIView alloc] initWithFrame:CGRectMake(cardX, cardY, cardW, cardH)];
-    self.infoCard.backgroundColor = [UIColor colorWithRed:0.624 green:0.624 blue:0.624 alpha:0.22];
+    self.infoCard.backgroundColor = [UIColor colorWithRed:0.624 green:0.624 blue:0.624 alpha:0.15];
     self.infoCard.layer.cornerRadius = 22;
     self.infoCard.layer.masksToBounds = NO;
     self.infoCard.layer.shadowColor   = [UIColor colorWithWhite:0.7 alpha:1.0].CGColor;
@@ -113,9 +116,13 @@
         CGFloat rowY = cardPadV + i * rowHeight + (rowHeight - (fontSize + 4)) / 2.0;
         UILabel *rowLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, rowY, cardW - 40, fontSize + 4)];
         rowLabel.tag = [tags[i] integerValue];
+        UIFont *bulletFont = [UIFont systemFontOfSize:22 weight:UIFontWeightMedium];
         NSMutableAttributedString *attr = [[NSMutableAttributedString alloc]
-            initWithString:[NSString stringWithFormat:@"• %@  ", keys[i]]
-                attributes:@{NSForegroundColorAttributeName: keyColor, NSFontAttributeName: rowFont}];
+            initWithString:@"● "
+                attributes:@{NSForegroundColorAttributeName: keyColor, NSFontAttributeName: bulletFont}];
+        [attr appendAttributedString:[[NSAttributedString alloc]
+            initWithString:[NSString stringWithFormat:@"%@  ", keys[i]]
+                attributes:@{NSForegroundColorAttributeName: keyColor, NSFontAttributeName: rowFont}]];
         [attr appendAttributedString:[[NSAttributedString alloc]
             initWithString:@"..."
                 attributes:@{NSForegroundColorAttributeName: [UIColor whiteColor], NSFontAttributeName: rowFont}]];
@@ -149,17 +156,11 @@
 }
 
 - (void)buttonTouchDown:(UIButton *)btn {
-    [UIView animateWithDuration:0.12 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
-        btn.transform = CGAffineTransformMakeScale(0.96, 0.96);
-        btn.alpha = 0.85;
-    } completion:nil];
+    [UIView animateWithDuration:0.1 animations:^{ btn.alpha = 0.6; }];
 }
 
 - (void)buttonTouchUp:(UIButton *)btn {
-    [UIView animateWithDuration:0.2 delay:0 usingSpringWithDamping:0.6 initialSpringVelocity:0.5 options:0 animations:^{
-        btn.transform = CGAffineTransformIdentity;
-        btn.alpha = 1.0;
-    } completion:nil];
+    [UIView animateWithDuration:0.2 animations:^{ btn.alpha = 1.0; }];
 }
 
 - (void)updateRowTag:(NSInteger)tag value:(NSString *)value {
@@ -174,9 +175,13 @@
     UIFont  *rowFont  = [UIFont systemFontOfSize:18 weight:UIFontWeightRegular];
     UIColor *keyColor = [UIColor colorWithRed:0.851 green:0.851 blue:0.851 alpha:1.0];
 
+    UIFont *bulletFont = [UIFont systemFontOfSize:22 weight:UIFontWeightMedium];
     NSMutableAttributedString *attr = [[NSMutableAttributedString alloc]
-        initWithString:[NSString stringWithFormat:@"• %@  ", keyStr]
-            attributes:@{NSForegroundColorAttributeName: keyColor, NSFontAttributeName: rowFont}];
+        initWithString:@"● "
+            attributes:@{NSForegroundColorAttributeName: keyColor, NSFontAttributeName: bulletFont}];
+    [attr appendAttributedString:[[NSAttributedString alloc]
+        initWithString:[NSString stringWithFormat:@"%@  ", keyStr]
+            attributes:@{NSForegroundColorAttributeName: keyColor, NSFontAttributeName: rowFont}]];
     [attr appendAttributedString:[[NSAttributedString alloc]
         initWithString:value
             attributes:@{NSForegroundColorAttributeName: [UIColor whiteColor], NSFontAttributeName: rowFont}]];
