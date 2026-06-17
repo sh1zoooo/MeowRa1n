@@ -1,17 +1,20 @@
 #import "RootViewController.h"
 #import "JailbreakEngine.h"
 
+static void applyGlow(UIView *view, UIColor *color, CGFloat radius) {
+    view.layer.shadowColor  = color.CGColor;
+    view.layer.shadowOffset = CGSizeZero;
+    view.layer.shadowRadius = radius;
+    view.layer.shadowOpacity = 1.0;
+    view.layer.masksToBounds = NO;
+}
+
 @interface RootViewController ()
-@property (nonatomic, strong) UILabel *titleLabel;
-@property (nonatomic, strong) UILabel *versionLabel;
-@property (nonatomic, strong) UIView *infoCard;
-@property (nonatomic, strong) UILabel *deviceLabel;
-@property (nonatomic, strong) UILabel *iosLabel;
-@property (nonatomic, strong) UILabel *modelLabel;
-@property (nonatomic, strong) UILabel *chipLabel;
-@property (nonatomic, strong) UILabel *statusLabel;
-@property (nonatomic, strong) UIButton *jailbreakButton;
-@property (nonatomic, strong) UITextView *logView;
+@property (nonatomic, strong) UILabel      *titleLabel;
+@property (nonatomic, strong) UIView       *infoCard;
+@property (nonatomic, strong) UILabel      *statusLabel;
+@property (nonatomic, strong) UIButton     *jailbreakButton;
+@property (nonatomic, strong) UITextView   *logView;
 @property (nonatomic, strong) UIProgressView *progressView;
 @property (nonatomic, strong) JailbreakEngine *engine;
 @end
@@ -20,111 +23,129 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor colorWithRed:0.11 green:0.11 blue:0.12 alpha:1.0];
+    // Тёмно-серый фон как в оригинале
+    self.view.backgroundColor = [UIColor colorWithRed:0.16 green:0.16 blue:0.16 alpha:1.0];
     [self setupUI];
     [self detectDevice];
 }
 
 - (void)setupUI {
-    CGFloat w = self.view.bounds.size.width;
+    CGFloat W = self.view.bounds.size.width;
+    CGFloat H = self.view.bounds.size.height;
 
-    // Paw icon
-    UILabel *pawLabel = [[UILabel alloc] init];
-    pawLabel.text = @"🐾";
-    pawLabel.font = [UIFont systemFontOfSize:48];
-    pawLabel.textAlignment = NSTextAlignmentCenter;
-    pawLabel.frame = CGRectMake(0, 80, w, 60);
-    [self.view addSubview:pawLabel];
+    // --- Лапка (реальное изображение) ---
+    UIImageView *pawView = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"paw.png"]];
+    pawView.contentMode = UIViewContentModeScaleAspectFit;
+    pawView.tintColor = [UIColor colorWithWhite:0.85 alpha:1.0];
+    CGFloat pawSize = 52;
+    pawView.frame = CGRectMake(W - 80, 68, pawSize, pawSize);
+    applyGlow(pawView, [UIColor whiteColor], 14);
+    [self.view addSubview:pawView];
 
-    // Title
+    // --- Заголовок с glow ---
     self.titleLabel = [[UILabel alloc] init];
     self.titleLabel.text = @"MeowRa1n";
-    self.titleLabel.font = [UIFont boldSystemFontOfSize:34];
-    self.titleLabel.textColor = [UIColor colorWithWhite:0.92 alpha:1.0];
+    self.titleLabel.font = [UIFont systemFontOfSize:38 weight:UIFontWeightBold];
+    self.titleLabel.textColor = [UIColor colorWithWhite:0.95 alpha:1.0];
     self.titleLabel.textAlignment = NSTextAlignmentCenter;
-    self.titleLabel.frame = CGRectMake(0, 148, w, 42);
+    // Glow через shadow
+    self.titleLabel.layer.shadowColor  = [UIColor whiteColor].CGColor;
+    self.titleLabel.layer.shadowOffset = CGSizeZero;
+    self.titleLabel.layer.shadowRadius = 12;
+    self.titleLabel.layer.shadowOpacity = 0.85;
+    self.titleLabel.layer.masksToBounds = NO;
+    self.titleLabel.frame = CGRectMake(0, 60, W - 60, 50);
     [self.view addSubview:self.titleLabel];
 
-    // Version
-    self.versionLabel = [[UILabel alloc] init];
-    self.versionLabel.text = @"iOS 17.4 - 26.2 Beta 1";
-    self.versionLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
-    self.versionLabel.textColor = [UIColor colorWithWhite:0.55 alpha:1.0];
-    self.versionLabel.textAlignment = NSTextAlignmentCenter;
-    self.versionLabel.frame = CGRectMake(0, 196, w, 20);
-    [self.view addSubview:self.versionLabel];
+    // --- Подзаголовок ---
+    UILabel *sub = [[UILabel alloc] init];
+    sub.text = @"iOS 17.4 - 26.2 Beta 1";
+    sub.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
+    sub.textColor = [UIColor colorWithWhite:0.65 alpha:1.0];
+    sub.textAlignment = NSTextAlignmentCenter;
+    sub.layer.shadowColor  = [UIColor whiteColor].CGColor;
+    sub.layer.shadowOffset = CGSizeZero;
+    sub.layer.shadowRadius = 6;
+    sub.layer.shadowOpacity = 0.4;
+    sub.layer.masksToBounds = NO;
+    sub.frame = CGRectMake(0, 116, W, 20);
+    [self.view addSubview:sub];
 
-    // Info card
-    self.infoCard = [[UIView alloc] initWithFrame:CGRectMake(24, 240, w - 48, 190)];
-    self.infoCard.backgroundColor = [UIColor colorWithRed:0.17 green:0.17 blue:0.18 alpha:1.0];
-    self.infoCard.layer.cornerRadius = 18;
+    // --- Карточка ---
+    CGFloat cardY = H * 0.35;
+    self.infoCard = [[UIView alloc] initWithFrame:CGRectMake(20, cardY, W - 40, 220)];
+    self.infoCard.backgroundColor = [UIColor colorWithRed:0.22 green:0.22 blue:0.22 alpha:0.85];
+    self.infoCard.layer.cornerRadius = 22;
     [self.view addSubview:self.infoCard];
 
     NSArray *labels = @[@"Device:", @"iOS:", @"Model:", @"Chip:", @"Jailbreak:"];
-    NSArray *tags = @[@100, @101, @102, @103, @104];
+    NSArray *tags   = @[@100, @101, @102, @103, @104];
     for (int i = 0; i < 5; i++) {
-        UILabel *lbl = [[UILabel alloc] initWithFrame:CGRectMake(16, 12 + i * 34, 100, 28)];
+        // Буллет
+        UILabel *dot = [[UILabel alloc] initWithFrame:CGRectMake(18, 20 + i * 38, 20, 28)];
+        dot.text = @"•";
+        dot.font = [UIFont systemFontOfSize:16];
+        dot.textColor = [UIColor colorWithWhite:0.65 alpha:1.0];
+        [self.infoCard addSubview:dot];
+
+        // Лейбл
+        UILabel *lbl = [[UILabel alloc] initWithFrame:CGRectMake(36, 20 + i * 38, 100, 28)];
         lbl.text = labels[i];
-        lbl.font = [UIFont systemFontOfSize:15];
-        lbl.textColor = [UIColor colorWithWhite:0.55 alpha:1.0];
+        lbl.font = [UIFont systemFontOfSize:16];
+        lbl.textColor = [UIColor colorWithWhite:0.65 alpha:1.0];
         [self.infoCard addSubview:lbl];
 
-        UILabel *val = [[UILabel alloc] initWithFrame:CGRectMake(110, 12 + i * 34, self.infoCard.bounds.size.width - 126, 28)];
+        // Значение
+        UILabel *val = [[UILabel alloc] initWithFrame:CGRectMake(130, 20 + i * 38, self.infoCard.bounds.size.width - 148, 28)];
         val.tag = [tags[i] intValue];
         val.text = @"...";
-        val.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
-        val.textColor = [UIColor colorWithWhite:0.9 alpha:1.0];
+        val.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+        val.textColor = [UIColor colorWithRed:0.45 green:0.75 blue:0.95 alpha:1.0];
         val.textAlignment = NSTextAlignmentRight;
         [self.infoCard addSubview:val];
-
-        if (i < 4) {
-            UIView *sep = [[UIView alloc] initWithFrame:CGRectMake(16, 40 + i * 34, self.infoCard.bounds.size.width - 32, 0.5)];
-            sep.backgroundColor = [UIColor colorWithWhite:0.25 alpha:1.0];
-            [self.infoCard addSubview:sep];
-        }
     }
-
-    self.deviceLabel = (UILabel *)[self.infoCard viewWithTag:100];
-    self.iosLabel    = (UILabel *)[self.infoCard viewWithTag:101];
-    self.modelLabel  = (UILabel *)[self.infoCard viewWithTag:102];
-    self.chipLabel   = (UILabel *)[self.infoCard viewWithTag:103];
     self.statusLabel = (UILabel *)[self.infoCard viewWithTag:104];
 
-    // Progress bar
+    // --- Progress (скрыт) ---
     self.progressView = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
-    self.progressView.frame = CGRectMake(24, 444, w - 48, 4);
+    self.progressView.frame = CGRectMake(20, cardY + 235, W - 40, 4);
     self.progressView.progressTintColor = [UIColor colorWithRed:0.04 green:0.52 blue:0.97 alpha:1.0];
-    self.progressView.trackTintColor = [UIColor colorWithWhite:0.2 alpha:1.0];
+    self.progressView.trackTintColor = [UIColor colorWithWhite:0.25 alpha:1.0];
     self.progressView.hidden = YES;
     [self.view addSubview:self.progressView];
 
-    // Log view
-    self.logView = [[UITextView alloc] initWithFrame:CGRectMake(24, 460, w - 48, 160)];
-    self.logView.backgroundColor = [UIColor colorWithRed:0.07 green:0.07 blue:0.08 alpha:1.0];
-    self.logView.textColor = [UIColor colorWithRed:0.4 green:0.9 blue:0.5 alpha:1.0];
+    // --- Лог (скрыт) ---
+    self.logView = [[UITextView alloc] initWithFrame:CGRectMake(20, cardY + 248, W - 40, 140)];
+    self.logView.backgroundColor = [UIColor colorWithRed:0.08 green:0.08 blue:0.09 alpha:1.0];
+    self.logView.textColor = [UIColor colorWithRed:0.3 green:0.9 blue:0.5 alpha:1.0];
     self.logView.font = [UIFont fontWithName:@"Menlo" size:11];
     self.logView.layer.cornerRadius = 12;
     self.logView.editable = NO;
     self.logView.hidden = YES;
     [self.view addSubview:self.logView];
 
-    // Jailbreak button
+    // --- Кнопка Jailbreak ---
     self.jailbreakButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    self.jailbreakButton.frame = CGRectMake(24, self.view.bounds.size.height - 100, w - 48, 56);
-    self.jailbreakButton.backgroundColor = [UIColor colorWithRed:0.22 green:0.22 blue:0.24 alpha:1.0];
-    self.jailbreakButton.layer.cornerRadius = 16;
+    self.jailbreakButton.frame = CGRectMake(20, H - 90, W - 40, 58);
+    self.jailbreakButton.backgroundColor = [UIColor colorWithRed:0.38 green:0.38 blue:0.40 alpha:1.0];
+    self.jailbreakButton.layer.cornerRadius = 18;
     [self.jailbreakButton setTitle:@"Jailbreak" forState:UIControlStateNormal];
-    [self.jailbreakButton setTitleColor:[UIColor colorWithWhite:0.92 alpha:1.0] forState:UIControlStateNormal];
-    self.jailbreakButton.titleLabel.font = [UIFont boldSystemFontOfSize:20];
+    [self.jailbreakButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    self.jailbreakButton.titleLabel.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold];
     [self.jailbreakButton addTarget:self action:@selector(startJailbreak) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:self.jailbreakButton];
 }
 
 - (void)detectDevice {
-    self.deviceLabel.text = [[UIDevice currentDevice] model];
-    self.iosLabel.text = [[UIDevice currentDevice] systemVersion];
-    self.modelLabel.text = @"Unknown";
-    self.chipLabel.text = @"Apple Silicon";
+    UILabel *dev   = (UILabel *)[self.infoCard viewWithTag:100];
+    UILabel *ios   = (UILabel *)[self.infoCard viewWithTag:101];
+    UILabel *model = (UILabel *)[self.infoCard viewWithTag:102];
+    UILabel *chip  = (UILabel *)[self.infoCard viewWithTag:103];
+
+    dev.text   = [[UIDevice currentDevice] model];
+    ios.text   = [[UIDevice currentDevice] systemVersion];
+    model.text = @"Unknown";
+    chip.text  = @"Apple Silicon";
     self.statusLabel.text = @"Ready";
     self.statusLabel.textColor = [UIColor colorWithRed:0.19 green:0.82 blue:0.35 alpha:1.0];
 }
@@ -148,12 +169,10 @@
         });
     } completion:^(BOOL success) {
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (success) {
-                [weakSelf.jailbreakButton setTitle:@"Done! 🐾" forState:UIControlStateNormal];
-                weakSelf.jailbreakButton.backgroundColor = [UIColor colorWithRed:0.04 green:0.22 blue:0.1 alpha:1.0];
-                weakSelf.statusLabel.text = @"Active";
-                weakSelf.statusLabel.textColor = [UIColor colorWithRed:0.19 green:0.82 blue:0.35 alpha:1.0];
-            }
+            [weakSelf.jailbreakButton setTitle:@"Done! 🐾" forState:UIControlStateNormal];
+            weakSelf.jailbreakButton.backgroundColor = [UIColor colorWithRed:0.07 green:0.28 blue:0.12 alpha:1.0];
+            weakSelf.statusLabel.text = @"Active";
+            weakSelf.statusLabel.textColor = [UIColor colorWithRed:0.19 green:0.82 blue:0.35 alpha:1.0];
         });
     }];
 }
