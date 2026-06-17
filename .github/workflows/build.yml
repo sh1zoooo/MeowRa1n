@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: brew install ldid xz
+        run: brew install ldid xz dpkg
 
       - name: Install Theos
         run: |
@@ -29,29 +29,31 @@ jobs:
           git clone --depth=1 https://github.com/theos/sdks.git /tmp/theos-sdks
           cp -r /tmp/theos-sdks/iPhoneOS16.5.sdk $HOME/theos/sdks/
 
-      - name: Build
+      - name: Build .deb
         run: |
           export THEOS=$HOME/theos
           make package FINALPACKAGE=1 STRIP=1 2>&1
 
-      - name: Package as IPA
+      - name: Extract .deb and create IPA
         run: |
-          echo "=== Build output ==="
-          find . -name "*.app" -o -name "*.deb" -o -name "*.ipa" 2>/dev/null | grep -v ".git"
-          
-          # Theos кладёт .app в .theos/obj/
-          APP=$(find . -name "MeowRa1n.app" | head -1)
-          if [ -n "$APP" ]; then
-            mkdir -p Payload
-            cp -r "$APP" Payload/
-            zip -r MeowRa1n.ipa Payload/
-            echo "✅ IPA created: MeowRa1n.ipa"
-          else
-            echo "⚠️ .app not found, listing all build artifacts:"
-            find . -name "*.deb" | head -10
-          fi
+          DEB=$(find packages/ -name "*.deb" | head -1)
+          echo "Found deb: $DEB"
 
-      - name: Upload IPA artifact
+          mkdir -p /tmp/deb-extract
+          dpkg-deb -x "$DEB" /tmp/deb-extract
+
+          echo "=== Contents of extracted deb ==="
+          find /tmp/deb-extract -type f
+
+          APP=$(find /tmp/deb-extract -name "*.app" -type d | head -1)
+          echo "Found .app: $APP"
+
+          mkdir -p Payload
+          cp -r "$APP" Payload/
+          zip -r MeowRa1n.ipa Payload/
+          echo "✅ IPA size: $(du -sh MeowRa1n.ipa)"
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: MeowRa1n-IPA
