@@ -1,13 +1,6 @@
 #import "RootViewController.h"
 #import "JailbreakEngine.h"
 
-static void applyGlow(UIView *view, UIColor *color, CGFloat radius, CGFloat opacity) {
-    view.layer.shadowColor   = color.CGColor;
-    view.layer.shadowOffset  = CGSizeZero;
-    view.layer.shadowRadius  = radius;
-    view.layer.shadowOpacity = opacity;
-    view.layer.masksToBounds = NO;
-}
 
 static void applyLabelGlow(UILabel *label, UIColor *color, CGFloat radius, CGFloat opacity) {
     label.layer.shadowColor   = color.CGColor;
