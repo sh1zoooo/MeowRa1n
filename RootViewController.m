@@ -2,12 +2,8 @@
 #import "JailbreakEngine.h"
 
 @interface RootViewController ()
-@property (nonatomic, strong) UIView          *infoCard;
-@property (nonatomic, strong) UILabel         *statusValueLabel;
-@property (nonatomic, strong) UIButton        *jailbreakButton;
-@property (nonatomic, strong) UITextView      *logView;
-@property (nonatomic, strong) UIProgressView  *progressView;
-@property (nonatomic, strong) JailbreakEngine *engine;
+@property (nonatomic, strong) UIView         *infoCard;
+@property (nonatomic, strong) UIButton       *jailbreakButton;
 @end
 
 @implementation RootViewController
@@ -21,7 +17,6 @@
 
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
-    // Обновляем gradient frame при изменении размера
     for (CALayer *layer in self.view.layer.sublayers) {
         if ([layer isKindOfClass:[CAGradientLayer class]]) {
             layer.frame = self.view.bounds;
@@ -32,10 +27,10 @@
 - (void)setupGradientBackground {
     CAGradientLayer *gradient = [CAGradientLayer layer];
     gradient.frame = self.view.bounds;
-    // Сверху тёмно-серый → снизу чёрный
+    // Снизу #030303 → сверху #3E3E3E
     gradient.colors = @[
-        (id)[UIColor colorWithWhite:0.26 alpha:1.0].CGColor,
-        (id)[UIColor colorWithWhite:0.10 alpha:1.0].CGColor
+        (id)[UIColor colorWithRed:0.243 green:0.243 blue:0.243 alpha:1.0].CGColor, // #3E3E3E сверху
+        (id)[UIColor colorWithRed:0.012 green:0.012 blue:0.012 alpha:1.0].CGColor  // #030303 снизу
     ];
     gradient.startPoint = CGPointMake(0.5, 0.0);
     gradient.endPoint   = CGPointMake(0.5, 1.0);
@@ -58,75 +53,66 @@
     titleLabel.layer.masksToBounds = NO;
     [titleLabel sizeToFit];
 
-    // ── Лапка paw.png ──────────────────────────────────────
-    UIImage *pawImg = [[UIImage imageNamed:@"paw"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    UIImageView *pawView = [[UIImageView alloc] initWithImage:pawImg];
-    pawView.tintColor = [UIColor colorWithRed:0.847 green:0.847 blue:0.847 alpha:1.0]; // #D8D8D8
+    // ── Лапка — JPEG без template, просто с glow ──────────
+    UIImageView *pawView = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"paw"]];
     pawView.contentMode = UIViewContentModeScaleAspectFit;
+    pawView.layer.cornerRadius = 6;
+    pawView.layer.masksToBounds = NO;
     pawView.layer.shadowColor   = [UIColor whiteColor].CGColor;
     pawView.layer.shadowOffset  = CGSizeZero;
     pawView.layer.shadowRadius  = 14;
     pawView.layer.shadowOpacity = 0.9;
-    pawView.layer.masksToBounds = NO;
 
-    CGFloat pawSize   = 36;
-    CGFloat gap       = 10;
-    CGFloat totalW    = titleLabel.frame.size.width + gap + pawSize;
-    CGFloat startX    = (W - totalW) / 2.0;
-    CGFloat titleTopY = 72;
+    CGFloat pawSize = 38;
+    CGFloat gap     = 12;
+    CGFloat totalW  = titleLabel.frame.size.width + gap + pawSize;
+    CGFloat startX  = (W - totalW) / 2.0;
+    CGFloat topY    = 72;
 
-    titleLabel.frame = CGRectMake(startX,
-                                  titleTopY,
-                                  titleLabel.frame.size.width,
-                                  titleLabel.frame.size.height);
-    pawView.frame = CGRectMake(startX + titleLabel.frame.size.width + gap,
-                               titleTopY + (titleLabel.frame.size.height - pawSize) / 2.0,
-                               pawSize, pawSize);
+    titleLabel.frame = CGRectMake(startX, topY, titleLabel.frame.size.width, titleLabel.frame.size.height);
+    pawView.frame    = CGRectMake(startX + titleLabel.frame.size.width + gap,
+                                  topY + (titleLabel.frame.size.height - pawSize) / 2.0,
+                                  pawSize, pawSize);
     [self.view addSubview:titleLabel];
     [self.view addSubview:pawView];
 
-    // ── Подзаголовок (без glow) ────────────────────────────
+    // ── Подзаголовок ──────────────────────────────────────
     UILabel *sub = [[UILabel alloc] init];
     sub.text = @"iOS 17.4 - 26.2 Beta 1";
     sub.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     sub.textColor = [UIColor colorWithRed:0.808 green:0.808 blue:0.808 alpha:1.0]; // #CECECE
     sub.textAlignment = NSTextAlignmentCenter;
-    sub.frame = CGRectMake(0, titleTopY + titleLabel.frame.size.height + 8, W, 22);
+    sub.frame = CGRectMake(0, topY + titleLabel.frame.size.height + 8, W, 22);
     [self.view addSubview:sub];
 
-    // ── Карточка по центру ────────────────────────────────
-    CGFloat fontSize  = 18.0;
-    CGFloat rowHeight = 44.0;
-    CGFloat cardPadV  = 14.0;
-    NSInteger rowCount = 5;
-    CGFloat cardW = W - 50;
-    CGFloat cardH = rowHeight * rowCount + cardPadV * 2;
-    CGFloat cardX = 25;
-    CGFloat cardY = (H - cardH) / 2.0;
+    // ── Карточка ──────────────────────────────────────────
+    CGFloat fontSize   = 18.0;
+    CGFloat rowHeight  = 46.0;
+    CGFloat cardPadV   = 16.0;
+    CGFloat cardW      = W - 50;
+    CGFloat cardH      = rowHeight * 5 + cardPadV * 2;
+    CGFloat cardX      = 25;
+    CGFloat cardY      = (H - cardH) / 2.0;
 
     self.infoCard = [[UIView alloc] initWithFrame:CGRectMake(cardX, cardY, cardW, cardH)];
-    self.infoCard.backgroundColor = [UIColor colorWithRed:0.624 green:0.624 blue:0.624 alpha:0.22]; // #9F9F9F 22%
+    self.infoCard.backgroundColor = [UIColor colorWithRed:0.624 green:0.624 blue:0.624 alpha:0.22];
     self.infoCard.layer.cornerRadius = 22;
     self.infoCard.layer.masksToBounds = NO;
-    self.infoCard.layer.shadowColor   = [UIColor colorWithRed:0.624 green:0.624 blue:0.624 alpha:1.0].CGColor;
+    self.infoCard.layer.shadowColor   = [UIColor colorWithWhite:0.7 alpha:1.0].CGColor;
     self.infoCard.layer.shadowOffset  = CGSizeZero;
-    self.infoCard.layer.shadowRadius  = 20;
-    self.infoCard.layer.shadowOpacity = 0.30;
+    self.infoCard.layer.shadowRadius  = 22;
+    self.infoCard.layer.shadowOpacity = 0.28;
     [self.view addSubview:self.infoCard];
 
-    // ── Строки карточки ───────────────────────────────────
     NSArray *keys = @[@"Device:", @"iOS:", @"Model:", @"Chip:", @"Jailbreak:"];
     NSArray *tags = @[@100, @101, @102, @103, @104];
-
     UIColor *keyColor = [UIColor colorWithRed:0.851 green:0.851 blue:0.851 alpha:1.0]; // #D9D9D9
     UIFont  *rowFont  = [UIFont systemFontOfSize:fontSize weight:UIFontWeightRegular];
 
     for (int i = 0; i < 5; i++) {
-        CGFloat rowY = cardPadV + i * rowHeight + (rowHeight - fontSize - 4) / 2.0;
-
+        CGFloat rowY = cardPadV + i * rowHeight + (rowHeight - (fontSize + 4)) / 2.0;
         UILabel *rowLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, rowY, cardW - 40, fontSize + 4)];
         rowLabel.tag = [tags[i] integerValue];
-
         NSMutableAttributedString *attr = [[NSMutableAttributedString alloc]
             initWithString:[NSString stringWithFormat:@"• %@  ", keys[i]]
                 attributes:@{NSForegroundColorAttributeName: keyColor, NSFontAttributeName: rowFont}];
@@ -136,25 +122,6 @@
         rowLabel.attributedText = attr;
         [self.infoCard addSubview:rowLabel];
     }
-    self.statusValueLabel = (UILabel *)[self.infoCard viewWithTag:104];
-
-    // ── Progress bar (скрыт) ──────────────────────────────
-    self.progressView = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
-    self.progressView.frame = CGRectMake(20, cardY + cardH + 16, W - 40, 4);
-    self.progressView.progressTintColor = [UIColor colorWithWhite:0.85 alpha:1.0];
-    self.progressView.trackTintColor    = [UIColor colorWithWhite:0.2 alpha:1.0];
-    self.progressView.hidden = YES;
-    [self.view addSubview:self.progressView];
-
-    // ── Лог (скрыт) ───────────────────────────────────────
-    self.logView = [[UITextView alloc] initWithFrame:CGRectMake(20, cardY + cardH + 28, W - 40, 110)];
-    self.logView.backgroundColor = [UIColor colorWithWhite:0.05 alpha:1.0];
-    self.logView.textColor = [UIColor colorWithRed:0.2 green:0.9 blue:0.4 alpha:1.0];
-    self.logView.font = [UIFont fontWithName:@"Menlo" size:11];
-    self.logView.layer.cornerRadius = 10;
-    self.logView.editable = NO;
-    self.logView.hidden = YES;
-    [self.view addSubview:self.logView];
 
     // ── Кнопка Jailbreak ─────────────────────────────────
     CGFloat btnW = W - 60;
@@ -164,7 +131,7 @@
 
     self.jailbreakButton = [UIButton buttonWithType:UIButtonTypeSystem];
     self.jailbreakButton.frame = CGRectMake(btnX, btnY, btnW, btnH);
-    self.jailbreakButton.backgroundColor = [UIColor colorWithRed:0.624 green:0.624 blue:0.624 alpha:1.0]; // #9F9F9F
+    self.jailbreakButton.backgroundColor = [UIColor colorWithRed:0.624 green:0.624 blue:0.624 alpha:1.0];
     self.jailbreakButton.layer.cornerRadius = 18;
     self.jailbreakButton.layer.masksToBounds = NO;
     [self.jailbreakButton setTitle:@"Jailbreak" forState:UIControlStateNormal];
@@ -174,8 +141,25 @@
     self.jailbreakButton.layer.shadowOffset  = CGSizeZero;
     self.jailbreakButton.layer.shadowRadius  = 18;
     self.jailbreakButton.layer.shadowOpacity = 0.7;
-    [self.jailbreakButton addTarget:self action:@selector(startJailbreak) forControlEvents:UIControlEventTouchUpInside];
+
+    [self.jailbreakButton addTarget:self action:@selector(buttonTouchDown:) forControlEvents:UIControlEventTouchDown];
+    [self.jailbreakButton addTarget:self action:@selector(buttonTouchUp:) forControlEvents:UIControlEventTouchUpInside];
+    [self.jailbreakButton addTarget:self action:@selector(buttonTouchUp:) forControlEvents:UIControlEventTouchUpOutside];
     [self.view addSubview:self.jailbreakButton];
+}
+
+- (void)buttonTouchDown:(UIButton *)btn {
+    [UIView animateWithDuration:0.12 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
+        btn.transform = CGAffineTransformMakeScale(0.96, 0.96);
+        btn.alpha = 0.85;
+    } completion:nil];
+}
+
+- (void)buttonTouchUp:(UIButton *)btn {
+    [UIView animateWithDuration:0.2 delay:0 usingSpringWithDamping:0.6 initialSpringVelocity:0.5 options:0 animations:^{
+        btn.transform = CGAffineTransformIdentity;
+        btn.alpha = 1.0;
+    } completion:nil];
 }
 
 - (void)updateRowTag:(NSInteger)tag value:(NSString *)value {
@@ -185,7 +169,7 @@
     NSArray *keyNames = @[@"Device:", @"iOS:", @"Model:", @"Chip:", @"Jailbreak:"];
     NSArray *tagList  = @[@100, @101, @102, @103, @104];
     NSInteger idx = [tagList indexOfObject:@(tag)];
-    NSString *keyStr = idx != NSNotFound ? keyNames[idx] : @"";
+    NSString *keyStr = (idx != NSNotFound) ? keyNames[idx] : @"";
 
     UIFont  *rowFont  = [UIFont systemFontOfSize:18 weight:UIFontWeightRegular];
     UIColor *keyColor = [UIColor colorWithRed:0.851 green:0.851 blue:0.851 alpha:1.0];
@@ -196,7 +180,10 @@
     [attr appendAttributedString:[[NSAttributedString alloc]
         initWithString:value
             attributes:@{NSForegroundColorAttributeName: [UIColor whiteColor], NSFontAttributeName: rowFont}]];
-    label.attributedText = attr;
+
+    [UIView transitionWithView:label duration:0.35 options:UIViewAnimationOptionTransitionCrossDissolve animations:^{
+        label.attributedText = attr;
+    } completion:nil];
 }
 
 - (void)detectDevice {
@@ -205,30 +192,6 @@
     [self updateRowTag:102 value:@"Unknown"];
     [self updateRowTag:103 value:@"Apple Silicon"];
     [self updateRowTag:104 value:@"Ready"];
-}
-
-- (void)startJailbreak {
-    self.jailbreakButton.enabled = NO;
-    [self.jailbreakButton setTitle:@"Running..." forState:UIControlStateNormal];
-    self.progressView.hidden = NO;
-    self.logView.hidden = NO;
-    self.logView.text = @"";
-    [self updateRowTag:104 value:@"Working..."];
-
-    self.engine = [[JailbreakEngine alloc] init];
-    __weak typeof(self) weakSelf = self;
-    [self.engine runWithLogCallback:^(NSString *line, float progress) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            weakSelf.logView.text = [weakSelf.logView.text stringByAppendingFormat:@"%@\n", line];
-            [weakSelf.logView scrollRangeToVisible:NSMakeRange(weakSelf.logView.text.length, 0)];
-            [weakSelf.progressView setProgress:progress animated:YES];
-        });
-    } completion:^(BOOL success) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [weakSelf.jailbreakButton setTitle:@"Done! 🐾" forState:UIControlStateNormal];
-            [weakSelf updateRowTag:104 value:@"Active"];
-        });
-    }];
 }
 
 @end
