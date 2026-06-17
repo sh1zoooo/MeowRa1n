@@ -1,0 +1,52 @@
+name: Build MeowRa1n IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Theos
+        run: |
+          brew install ldid xz
+          git clone --recursive https://github.com/theos/theos.git /opt/theos
+          echo "THEOS=/opt/theos" >> $GITHUB_ENV
+          curl -LO https://github.com/theos/sdks/releases/latest/download/iPhoneOS16.4.sdk.tar.xz
+          tar -xf iPhoneOS16.4.sdk.tar.xz -C /opt/theos/sdks/
+
+      - name: Build IPA
+        run: |
+          export THEOS=/opt/theos
+          make package FINALPACKAGE=1 STRIP=1
+
+      - name: Find IPA
+        run: |
+          find . -name "*.ipa" -o -name "*.deb" | head -5
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MeowRa1n-IPA
+          path: |
+            packages/*.ipa
+            packages/*.deb
+          if-no-files-found: warn
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: MeowRa1n v1.0.${{ github.run_number }}
+          files: |
+            packages/*.ipa
+            packages/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
