@@ -34,8 +34,8 @@
     gradient.frame = self.view.bounds;
     // Сверху тёмно-серый → снизу чёрный
     gradient.colors = @[
-        (id)[UIColor colorWithWhite:0.20 alpha:1.0].CGColor,
-        (id)[UIColor blackColor].CGColor
+        (id)[UIColor colorWithWhite:0.26 alpha:1.0].CGColor,
+        (id)[UIColor colorWithWhite:0.10 alpha:1.0].CGColor
     ];
     gradient.startPoint = CGPointMake(0.5, 0.0);
     gradient.endPoint   = CGPointMake(0.5, 1.0);
@@ -59,7 +59,8 @@
     [titleLabel sizeToFit];
 
     // ── Лапка paw.png ──────────────────────────────────────
-    UIImageView *pawView = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"paw"]];
+    UIImage *pawImg = [[UIImage imageNamed:@"paw"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    UIImageView *pawView = [[UIImageView alloc] initWithImage:pawImg];
     pawView.tintColor = [UIColor colorWithRed:0.847 green:0.847 blue:0.847 alpha:1.0]; // #D8D8D8
     pawView.contentMode = UIViewContentModeScaleAspectFit;
     pawView.layer.shadowColor   = [UIColor whiteColor].CGColor;
@@ -100,13 +101,13 @@
     CGFloat cardY = (H - cardH) / 2.0;
 
     self.infoCard = [[UIView alloc] initWithFrame:CGRectMake(cardX, cardY, cardW, cardH)];
-    self.infoCard.backgroundColor = [UIColor colorWithRed:0.624 green:0.624 blue:0.624 alpha:0.15]; // #9F9F9F 15%
+    self.infoCard.backgroundColor = [UIColor colorWithRed:0.624 green:0.624 blue:0.624 alpha:0.22]; // #9F9F9F ~22%
     self.infoCard.layer.cornerRadius = 22;
     self.infoCard.layer.masksToBounds = NO;
     self.infoCard.layer.shadowColor   = [UIColor colorWithRed:0.624 green:0.624 blue:0.624 alpha:1.0].CGColor;
     self.infoCard.layer.shadowOffset  = CGSizeZero;
     self.infoCard.layer.shadowRadius  = 20;
-    self.infoCard.layer.shadowOpacity = 0.15;
+    self.infoCard.layer.shadowOpacity = 0.30;
     [self.view addSubview:self.infoCard];
 
     // ── Строки карточки — всё в одну строку слева ─────────
@@ -167,7 +168,7 @@
     CGFloat btnW = W - 60;
     CGFloat btnH = 60;
     CGFloat btnX = 30;
-    CGFloat btnY = H - btnH - 50;
+    CGFloat btnY = H - btnH - 40;
 
     self.jailbreakButton = [UIButton buttonWithType:UIButtonTypeSystem];
     self.jailbreakButton.frame = CGRectMake(btnX, btnY, btnW, btnH);
