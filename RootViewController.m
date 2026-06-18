@@ -44,7 +44,7 @@
     // ── Заголовок ─────────────────────────────────────────
     UILabel *title = [[UILabel alloc] init];
     title.text = @"MeowRa1n";
-    title.font = [UIFont systemFontOfSize:40 weight:UIFontWeightBold];
+    title.font = [UIFont systemFontOfSize:40 weight:UIFontWeightHeavy];
     title.textColor = [UIColor colorWithWhite:0.808 alpha:1.0];
     title.layer.shadowColor   = [UIColor whiteColor].CGColor;
     title.layer.shadowOffset  = CGSizeZero;
@@ -78,7 +78,7 @@
     // ── Подзаголовок ──────────────────────────────────────
     UILabel *sub = [[UILabel alloc] init];
     sub.text = @"iOS 17.4 - 26.2 Beta 1";
-    sub.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
+    sub.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
     sub.textColor = [UIColor colorWithWhite:0.808 alpha:1.0];
     sub.textAlignment = NSTextAlignmentCenter;
     sub.frame = CGRectMake(0, topY + title.frame.size.height + 8, W, 22);
