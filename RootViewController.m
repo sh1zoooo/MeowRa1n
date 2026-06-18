@@ -44,7 +44,8 @@
     // ── Заголовок ─────────────────────────────────────────
     UILabel *title = [[UILabel alloc] init];
     title.text = @"MeowRa1n";
-    title.font = [UIFont systemFontOfSize:40 weight:UIFontWeightHeavy];
+    UIFont *sfDisplay = [UIFont fontWithName:@"SFUIDisplay-Medium" size:40];
+    title.font = sfDisplay ?: [UIFont systemFontOfSize:40 weight:UIFontWeightHeavy];
     title.textColor = [UIColor colorWithWhite:0.808 alpha:1.0];
     title.layer.shadowColor   = [UIColor whiteColor].CGColor;
     title.layer.shadowOffset  = CGSizeZero;
