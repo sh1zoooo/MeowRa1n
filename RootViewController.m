@@ -5,6 +5,11 @@
 @property (nonatomic, strong) UIButton *jailbreakButton;
 @end
 
+// Акцент темы — монохромное серебристое свечение
+static inline UIColor *MRNeonAccent(CGFloat alpha) {
+    return [UIColor colorWithWhite:1.0 alpha:alpha];
+}
+
 @implementation RootViewController
 
 - (void)viewDidLoad {
@@ -85,24 +90,58 @@
     sub.frame = CGRectMake(0, topY + title.frame.size.height + 8, W, 22);
     [self.view addSubview:sub];
 
+    // ── Кнопка (считаем геометрию заранее — карточка равняется по ней) ──
+    CGFloat sideMargin = 30;
+    CGFloat btnW = W - sideMargin * 2;
+    CGFloat btnH = 60;
+    CGFloat btnY = H - btnH - 40;
+
     // ── Карточка ──────────────────────────────────────────
     CGFloat fontSize  = 19.0;
     CGFloat rowH      = 42.0;
     CGFloat padV      = 18.0;
-    CGFloat cardW     = W - 50;
+    CGFloat cardW     = btnW;                 // та же ширина, что и у кнопки
     CGFloat cardH     = rowH * 5 + padV * 2;
-    CGFloat cardX     = 25;
-    CGFloat cardY     = (H - cardH) / 2.0;
+    CGFloat cardX     = sideMargin;            // те же боковые отступы, что и у кнопки
+
+    CGFloat contentTop    = sub.frame.origin.y + sub.frame.size.height; // низ подзаголовка
+    CGFloat contentBottom = btnY;                                       // верх кнопки
+    CGFloat cardY = contentTop + (contentBottom - contentTop - cardH) / 2.0;
 
     self.infoCard = [[UIView alloc] initWithFrame:CGRectMake(cardX, cardY, cardW, cardH)];
-    self.infoCard.backgroundColor = [UIColor colorWithWhite:0.624 alpha:0.15];
+    self.infoCard.backgroundColor = [UIColor clearColor];
     self.infoCard.layer.cornerRadius = 22;
     self.infoCard.layer.masksToBounds = NO;
-    self.infoCard.layer.shadowColor   = [UIColor whiteColor].CGColor;
+    // Неоновое свечение самой карточки
+    self.infoCard.layer.shadowColor   = MRNeonAccent(1.0).CGColor;
     self.infoCard.layer.shadowOffset  = CGSizeZero;
-    self.infoCard.layer.shadowRadius  = 18;
-    self.infoCard.layer.shadowOpacity = 0.18;
+    self.infoCard.layer.shadowRadius  = 24;
+    self.infoCard.layer.shadowOpacity = 0.35;
     [self.view addSubview:self.infoCard];
+
+    // Настоящий blur вместо плоской заливки
+    UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:
+        [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark]];
+    blur.frame = self.infoCard.bounds;
+    blur.layer.cornerRadius = 22;
+    blur.clipsToBounds = YES;
+    blur.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.infoCard addSubview:blur];
+
+    // Тонкий серебристый бордер поверх blur
+    self.infoCard.layer.borderWidth = 1.0;
+    self.infoCard.layer.borderColor = MRNeonAccent(0.35).CGColor;
+
+    // Стеклянный "хайлайт" — градиент сверху вниз, имитирующий отражение света
+    CAGradientLayer *glassHighlight = [CAGradientLayer layer];
+    glassHighlight.frame = self.infoCard.bounds;
+    glassHighlight.cornerRadius = 22;
+    glassHighlight.colors = @[
+        (id)[UIColor colorWithWhite:1.0 alpha:0.08].CGColor,
+        (id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
+    ];
+    glassHighlight.locations = @[@0.0, @0.45];
+    [blur.contentView.layer addSublayer:glassHighlight];
 
     // ── Строки карточки ───────────────────────────────────
     NSArray *keys = @[@"Device:", @"iOS:", @"Model:", @"Chip:", @"Jailbreak:"];
@@ -111,8 +150,18 @@
     UIFont  *keyFont  = [UIFont systemFontOfSize:fontSize weight:UIFontWeightMedium];
     UIFont  *valFont  = [UIFont systemFontOfSize:fontSize weight:UIFontWeightMedium];
 
+    // Ширину значения выравниваем по самому длинному ключу — единая колонка
+    CGFloat maxKeyW = 0;
+    for (NSString *k in keys) {
+        NSString *bulleted = [NSString stringWithFormat:@"• %@", k];
+        CGSize sz = [bulleted sizeWithAttributes:@{NSFontAttributeName: keyFont}];
+        maxKeyW = MAX(maxKeyW, sz.width);
+    }
+    CGFloat valX = 24 + maxKeyW + 8;
+
     for (int i = 0; i < 5; i++) {
         CGFloat rowY = padV + i * rowH;
+        BOOL isStatusRow = (i == 4); // строка "Jailbreak:"
 
         // Ключ "• Device:"
         UILabel *keyLabel = [[UILabel alloc] init];
@@ -122,25 +171,31 @@
         [keyLabel sizeToFit];
         keyLabel.frame = CGRectMake(24, rowY + (rowH - keyLabel.frame.size.height) / 2.0,
                                     keyLabel.frame.size.width, keyLabel.frame.size.height);
-        [self.infoCard addSubview:keyLabel];
+        [blur.contentView addSubview:keyLabel];
 
-        // Значение — выровнено по центру X от конца ключа до правого края
+        // Значение — единая колонка для всех строк
         UILabel *valLabel = [[UILabel alloc] init];
         valLabel.tag = [tags[i] integerValue];
         valLabel.text = @"...";
         valLabel.font = valFont;
-        valLabel.textColor = [UIColor whiteColor];
-        CGFloat valX = keyLabel.frame.origin.x + keyLabel.frame.size.width + 8;
+        // Статус подсвечиваем ярким белым с glow, остальные значения — приглушённее
+        valLabel.textColor = isStatusRow ? MRNeonAccent(1.0) : [UIColor colorWithWhite:0.82 alpha:1.0];
+        if (isStatusRow) {
+            valLabel.font = [UIFont systemFontOfSize:fontSize weight:UIFontWeightSemibold];
+            valLabel.layer.shadowColor   = MRNeonAccent(1.0).CGColor;
+            valLabel.layer.shadowOffset  = CGSizeZero;
+            valLabel.layer.shadowRadius  = 8;
+            valLabel.layer.shadowOpacity = 0.9;
+            valLabel.layer.masksToBounds = NO;
+        }
         valLabel.frame = CGRectMake(valX, rowY + (rowH - keyLabel.frame.size.height) / 2.0,
                                     cardW - valX - 16, keyLabel.frame.size.height);
-        [self.infoCard addSubview:valLabel];
+        [blur.contentView addSubview:valLabel];
     }
 
     // ── Кнопка ────────────────────────────────────────────
-    CGFloat btnW = W - 60;
-    CGFloat btnH = 60;
     self.jailbreakButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    self.jailbreakButton.frame = CGRectMake(30, H - btnH - 40, btnW, btnH);
+    self.jailbreakButton.frame = CGRectMake(sideMargin, btnY, btnW, btnH);
     self.jailbreakButton.backgroundColor = [UIColor colorWithWhite:0.624 alpha:1.0];
     self.jailbreakButton.layer.cornerRadius = 18;
     self.jailbreakButton.layer.masksToBounds = NO;
