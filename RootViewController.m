@@ -102,11 +102,11 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     CGFloat padV      = 18.0;
     CGFloat cardW     = btnW;                 // та же ширина, что и у кнопки
     CGFloat cardH     = rowH * 5 + padV * 2;
-    CGFloat cardX     = sideMargin;            // те же боковые отступы, что и у кнопки
 
     CGFloat contentTop    = sub.frame.origin.y + sub.frame.size.height; // низ подзаголовка
     CGFloat contentBottom = btnY;                                       // верх кнопки
-    CGFloat cardY = contentTop + (contentBottom - contentTop - cardH) / 2.0;
+    CGFloat cardX = roundf((W - cardW) / 2.0);                          // строго по центру экрана по горизонтали
+    CGFloat cardY = roundf(contentTop + (contentBottom - contentTop - cardH) / 2.0);
 
     self.infoCard = [[UIView alloc] initWithFrame:CGRectMake(cardX, cardY, cardW, cardH)];
     self.infoCard.backgroundColor = [UIColor clearColor];
@@ -173,21 +173,17 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
                                     keyLabel.frame.size.width, keyLabel.frame.size.height);
         [blur.contentView addSubview:keyLabel];
 
-        // Значение — единая колонка для всех строк
+        // Значение — единая колонка для всех строк, все значения в неоновом белом стиле
         UILabel *valLabel = [[UILabel alloc] init];
         valLabel.tag = [tags[i] integerValue];
         valLabel.text = @"...";
-        valLabel.font = valFont;
-        // Статус подсвечиваем ярким белым с glow, остальные значения — приглушённее
-        valLabel.textColor = isStatusRow ? MRNeonAccent(1.0) : [UIColor colorWithWhite:0.82 alpha:1.0];
-        if (isStatusRow) {
-            valLabel.font = [UIFont systemFontOfSize:fontSize weight:UIFontWeightSemibold];
-            valLabel.layer.shadowColor   = MRNeonAccent(1.0).CGColor;
-            valLabel.layer.shadowOffset  = CGSizeZero;
-            valLabel.layer.shadowRadius  = 8;
-            valLabel.layer.shadowOpacity = 0.9;
-            valLabel.layer.masksToBounds = NO;
-        }
+        valLabel.font = isStatusRow ? [UIFont systemFontOfSize:fontSize weight:UIFontWeightSemibold] : valFont;
+        valLabel.textColor = MRNeonAccent(1.0);
+        valLabel.layer.shadowColor   = MRNeonAccent(1.0).CGColor;
+        valLabel.layer.shadowOffset  = CGSizeZero;
+        valLabel.layer.shadowRadius  = 8;
+        valLabel.layer.shadowOpacity = 0.9;
+        valLabel.layer.masksToBounds = NO;
         valLabel.frame = CGRectMake(valX, rowY + (rowH - keyLabel.frame.size.height) / 2.0,
                                     cardW - valX - 16, keyLabel.frame.size.height);
         [blur.contentView addSubview:valLabel];
