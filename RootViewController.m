@@ -106,7 +106,10 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     CGFloat contentTop    = sub.frame.origin.y + sub.frame.size.height; // низ подзаголовка
     CGFloat contentBottom = btnY;                                       // верх кнопки
     CGFloat cardX = roundf((W - cardW) / 2.0);                          // строго по центру экрана по горизонтали
-    CGFloat cardY = roundf(contentTop + (contentBottom - contentTop - cardH) / 2.0);
+    // Кнопка снизу визуально "тяжелее" (заливка + тень), поэтому чисто геометрический центр
+    // выглядит как смещение карточки вниз. Компенсируем оптическим сдвигом вверх.
+    CGFloat opticalOffset = 20.0;
+    CGFloat cardY = roundf(contentTop + (contentBottom - contentTop - cardH) / 2.0 - opticalOffset);
 
     self.infoCard = [[UIView alloc] initWithFrame:CGRectMake(cardX, cardY, cardW, cardH)];
     self.infoCard.backgroundColor = [UIColor clearColor];
