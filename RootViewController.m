@@ -4,8 +4,11 @@
 @property (nonatomic, strong) UIView   *infoCard;
 @property (nonatomic, strong) UIButton *jailbreakButton;
 @property (nonatomic, strong) NSMutableArray<UILabel *> *logLabelStack;
-@property (nonatomic, strong) UILabel  *stepCounterLabel;
 @property (nonatomic, strong) UIView   *logGlowBackdrop;
+@property (nonatomic, strong) UIView   *progressRingContainer;
+@property (nonatomic, strong) CAShapeLayer *progressFillLayer;
+@property (nonatomic, strong) UILabel  *progressPercentLabel;
+@property (nonatomic, strong) UIView   *scanLineView;
 @property (nonatomic, strong) NSArray<NSString *> *jailbreakSteps;
 @property (nonatomic, assign) NSInteger jailbreakStepIndex;
 @property (nonatomic, assign) BOOL isRunning;
@@ -313,17 +316,18 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
         } completion:^(BOOL finished2) {
             [flash removeFromSuperview];
             [self setupLogGlowBackdrop];
-            [self setupStepCounter];
+            [self setupProgressRing];
+            [self setupScanLine];
             [self advanceLogStep];
         }];
     }];
 }
 
-// Мягкое радиальное свечение позади лог-стека — для атмосферы, не голый текст на фоне
+// Мягкое радиальное свечение позади лог-стека — пульсирует синхронно с каждой новой строкой
 - (void)setupLogGlowBackdrop {
-    CGFloat size = MIN(self.view.bounds.size.width, self.view.bounds.size.height) * 0.9;
+    CGFloat size = MIN(self.view.bounds.size.width, self.view.bounds.size.height) * 0.95;
     UIView *glow = [[UIView alloc] initWithFrame:CGRectMake(0, 0, size, size)];
-    glow.center = CGPointMake(self.view.center.x, self.view.center.y - 10);
+    glow.center = self.view.center;
     glow.userInteractionEnabled = NO;
     glow.alpha = 0.0;
 
@@ -331,7 +335,7 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     radial.type = kCAGradientLayerRadial;
     radial.frame = glow.bounds;
     radial.colors = @[
-        (id)[UIColor colorWithWhite:1.0 alpha:0.10].CGColor,
+        (id)[UIColor colorWithWhite:1.0 alpha:0.12].CGColor,
         (id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
     ];
     radial.startPoint = CGPointMake(0.5, 0.5);
@@ -341,27 +345,143 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     [self.view insertSubview:glow belowSubview:self.jailbreakButton];
     self.logGlowBackdrop = glow;
     [UIView animateWithDuration:0.5 animations:^{
-        glow.alpha = 1.0;
+        glow.alpha = 0.7;
     }];
 }
 
-- (void)setupStepCounter {
-    UILabel *counter = [[UILabel alloc] init];
-    counter.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
-    counter.textColor = [UIColor colorWithWhite:0.6 alpha:1.0];
-    counter.textAlignment = NSTextAlignmentCenter;
-    counter.alpha = 0.0;
+// Тонкая сканирующая линия, непрерывно "дышащая" вверх-вниз — постоянное движение на экране,
+// чтобы сцена не выглядела мёртвой в паузах между строками лога
+- (void)setupScanLine {
+    CGFloat W = self.view.bounds.size.width;
+    CGFloat lineW = W * 0.62;
+    UIView *line = [[UIView alloc] initWithFrame:CGRectMake(0, 0, lineW, 2)];
+    line.center = CGPointMake(self.view.center.x, self.view.center.y);
+    line.alpha = 0.0;
+
+    CAGradientLayer *g = [CAGradientLayer layer];
+    g.frame = line.bounds;
+    g.startPoint = CGPointMake(0, 0.5);
+    g.endPoint   = CGPointMake(1, 0.5);
+    g.colors = @[
+        (id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
+        (id)[UIColor colorWithWhite:1.0 alpha:0.55].CGColor,
+        (id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
+    ];
+    g.locations = @[@0.0, @0.5, @1.0];
+    [line.layer addSublayer:g];
+    line.layer.shadowColor = [UIColor whiteColor].CGColor;
+    line.layer.shadowOffset = CGSizeZero;
+    line.layer.shadowRadius = 6;
+    line.layer.shadowOpacity = 0.8;
+
+    [self.view insertSubview:line aboveSubview:self.logGlowBackdrop];
+    self.scanLineView = line;
+
+    [UIView animateWithDuration:0.4 animations:^{
+        line.alpha = 1.0;
+    }];
+
+    CGFloat travel = 170;
+    line.center = CGPointMake(line.center.x, line.center.y - travel);
+    [UIView animateWithDuration:2.6 delay:0.3
+                         options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionAutoreverse | UIViewAnimationOptionRepeat
+                      animations:^{
+        line.center = CGPointMake(line.center.x, line.center.y + travel * 2);
+    } completion:nil];
+}
+
+// Круговое кольцо прогресса с процентом внутри — заменяет сухую текстовую надпись реальной графикой
+- (void)setupProgressRing {
     CGFloat W = self.view.bounds.size.width;
     CGFloat H = self.view.bounds.size.height;
-    counter.frame = CGRectMake(0, H - 130, W, 20);
-    [self.view addSubview:counter];
-    self.stepCounterLabel = counter;
+    CGFloat diameter = 68;
+
+    UIView *container = [[UIView alloc] initWithFrame:CGRectMake(0, 0, diameter, diameter)];
+    container.center = CGPointMake(W / 2.0, H - 118);
+    container.alpha = 0.0;
+    [self.view addSubview:container];
+    self.progressRingContainer = container;
+
+    UIBezierPath *path = [UIBezierPath bezierPathWithArcCenter:CGPointMake(diameter/2.0, diameter/2.0)
+                                                          radius:diameter/2.0 - 3
+                                                      startAngle:-M_PI_2
+                                                        endAngle:-M_PI_2 + 2*M_PI
+                                                       clockwise:YES];
+
+    CAShapeLayer *track = [CAShapeLayer layer];
+    track.path = path.CGPath;
+    track.fillColor = [UIColor clearColor].CGColor;
+    track.strokeColor = [UIColor colorWithWhite:1.0 alpha:0.15].CGColor;
+    track.lineWidth = 3;
+    [container.layer addSublayer:track];
+
+    CAShapeLayer *fill = [CAShapeLayer layer];
+    fill.path = path.CGPath;
+    fill.fillColor = [UIColor clearColor].CGColor;
+    fill.strokeColor = [UIColor whiteColor].CGColor;
+    fill.lineWidth = 3;
+    fill.lineCap = kCALineCapRound;
+    fill.strokeEnd = 0.0;
+    fill.shadowColor = [UIColor whiteColor].CGColor;
+    fill.shadowOffset = CGSizeZero;
+    fill.shadowRadius = 6;
+    fill.shadowOpacity = 0.9;
+    [container.layer addSublayer:fill];
+    self.progressFillLayer = fill;
+
+    UILabel *percent = [[UILabel alloc] initWithFrame:container.bounds];
+    percent.text = @"0%";
+    percent.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBold];
+    percent.textColor = [UIColor whiteColor];
+    percent.textAlignment = NSTextAlignmentCenter;
+    percent.layer.shadowColor = [UIColor whiteColor].CGColor;
+    percent.layer.shadowOffset = CGSizeZero;
+    percent.layer.shadowRadius = 6;
+    percent.layer.shadowOpacity = 0.7;
+    [container addSubview:percent];
+    self.progressPercentLabel = percent;
+
     [UIView animateWithDuration:0.4 animations:^{
-        counter.alpha = 1.0;
+        container.alpha = 1.0;
     }];
 }
 
-// 3. Цепочка логов по центру экрана — старые строки не пропадают, а копятся стеком выше
+- (void)updateProgressRingToFraction:(CGFloat)fraction duration:(CFTimeInterval)duration {
+    CAShapeLayer *fill = self.progressFillLayer;
+    CABasicAnimation *anim = [CABasicAnimation animationWithKeyPath:@"strokeEnd"];
+    anim.fromValue = @(fill.strokeEnd);
+    anim.toValue = @(fraction);
+    anim.duration = duration;
+    anim.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
+    anim.fillMode = kCAFillModeForwards;
+    anim.removedOnCompletion = NO;
+    [fill addAnimation:anim forKey:@"strokeEndAnim"];
+    fill.strokeEnd = fraction;
+
+    [UIView transitionWithView:self.progressPercentLabel duration:duration * 0.6
+                        options:UIViewAnimationOptionTransitionCrossDissolve animations:^{
+        self.progressPercentLabel.text = [NSString stringWithFormat:@"%d%%", (int)round(fraction * 100)];
+    } completion:nil];
+}
+
+// Короткий синхронный "пульс" фона и кольца в момент появления новой строки — ощущение единого удара, не разрозненных анимаций
+- (void)pulseGraphicsForDuration:(CFTimeInterval)duration {
+    UIView *glow = self.logGlowBackdrop;
+    UIView *ring = self.progressRingContainer;
+    [UIView animateWithDuration:duration * 0.35 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+        glow.transform = CGAffineTransformMakeScale(1.06, 1.06);
+        glow.alpha = 0.95;
+        ring.transform = CGAffineTransformMakeScale(1.08, 1.08);
+    } completion:^(BOOL finished) {
+        [UIView animateWithDuration:duration * 0.5 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+            glow.transform = CGAffineTransformIdentity;
+            glow.alpha = 0.7;
+            ring.transform = CGAffineTransformIdentity;
+        } completion:nil];
+    }];
+}
+
+// 3. Цепочка логов — старые строки не пропадают, а копятся стеком, весь блок как группа держится по центру
 - (void)advanceLogStep {
     if (self.jailbreakStepIndex >= self.jailbreakSteps.count) {
         [self finishWithResultAlert];
@@ -370,9 +490,11 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     NSString *text = self.jailbreakSteps[self.jailbreakStepIndex];
     self.jailbreakStepIndex += 1;
 
-    self.stepCounterLabel.text = [NSString stringWithFormat:@"%ld / %ld",
-                                   (long)self.jailbreakStepIndex, (long)self.jailbreakSteps.count];
-    [self showLogStep:text];
+    CGFloat stepDuration = 0.55;
+    [self showLogStep:text duration:stepDuration];
+    [self pulseGraphicsForDuration:stepDuration];
+    [self updateProgressRingToFraction:(CGFloat)self.jailbreakStepIndex / (CGFloat)self.jailbreakSteps.count
+                               duration:stepDuration];
 
     // Держим строку на экране заметно дольше, чтобы не выглядело фейково-быстро
     CGFloat baseDelay = 1.7;
@@ -383,9 +505,8 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     });
 }
 
-// Параметры внешнего вида для каждого "поколения" строки в стеке истории (0 = самая новая)
-- (void)styleLabel:(UILabel *)lbl forGeneration:(NSInteger)gen baseCenter:(CGPoint)baseCenter {
-    CGFloat rowSpacing = 40.0;
+// Параметры внешнего вида для каждого "поколения" строки в стеке истории (0 = самая новая, внизу блока)
+- (void)styleLabel:(UILabel *)lbl forGeneration:(NSInteger)gen baseCenter:(CGPoint)baseCenter rowSpacing:(CGFloat)rowSpacing {
     CGFloat scale       = MAX(0.42, 1.0 - gen * 0.16);
     CGFloat grayLevel   = MAX(0.30, 1.0 - gen * 0.16);
     CGFloat labelAlpha  = MAX(0.28, 1.0 - gen * 0.16);
@@ -398,34 +519,30 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     lbl.layer.shadowOpacity = shadowOp;
 }
 
-- (void)showLogStep:(NSString *)text {
+- (void)showLogStep:(NSString *)text duration:(CFTimeInterval)duration {
     NSString *bulleted = [NSString stringWithFormat:@"• %@", text];
-    CGPoint baseCenter = CGPointMake(self.view.center.x, self.view.center.y - 10);
+    CGFloat rowSpacing = 40.0;
     NSInteger maxVisibleGenerations = 4; // 0..4 = до 5 строк одновременно на экране
+    CGFloat screenCenterY = self.view.center.y - 10; // лёгкая оптическая компенсация под кнопку/кольцо снизу
 
-    // Продвигаем все существующие строки на одно "поколение" выше по стеку
+    // Кто останется на экране после этого шага (используем для расчёта общего центра группы)
+    NSMutableArray<UILabel *> *toKeep = [NSMutableArray array];
     NSMutableArray<UILabel *> *toRemove = [NSMutableArray array];
     for (UILabel *lbl in self.logLabelStack) {
         NSInteger gen = lbl.tag + 1;
-        lbl.tag = gen;
         if (gen > maxVisibleGenerations) {
             [toRemove addObject:lbl];
-            continue;
+        } else {
+            [toKeep addObject:lbl];
         }
-        [UIView animateWithDuration:0.5 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
-            [self styleLabel:lbl forGeneration:gen baseCenter:baseCenter];
-        } completion:nil];
-    }
-    for (UILabel *lbl in toRemove) {
-        [self.logLabelStack removeObject:lbl];
-        [UIView animateWithDuration:0.4 animations:^{
-            lbl.alpha = 0.0;
-        } completion:^(BOOL finished) {
-            [lbl removeFromSuperview];
-        }];
     }
 
-    // Новая строка — крупная, белая, появляется в центре (поколение 0)
+    // Блок из N строк (включая новую) центрируем как ГРУППУ, а не только последнюю строку —
+    // иначе стек растёт только вверх и композиция выглядит смещённой/кривой
+    NSInteger N = toKeep.count + 1;
+    CGPoint baseCenter = CGPointMake(self.view.center.x, screenCenterY + (N - 1) * rowSpacing / 2.0);
+
+    // Новая строка — крупная, белая, стартует уже в целевой точке (gen 0), просто мельче и прозрачнее
     UILabel *newLabel = [[UILabel alloc] init];
     newLabel.tag = 0;
     newLabel.text = bulleted;
@@ -436,7 +553,6 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     newLabel.layer.shadowOffset = CGSizeZero;
     newLabel.layer.shadowRadius = 10;
     newLabel.layer.masksToBounds = NO;
-
     CGFloat W = self.view.bounds.size.width;
     newLabel.frame = CGRectMake(24, 0, W - 48, 60);
     newLabel.center = baseCenter;
@@ -445,22 +561,40 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     newLabel.textColor = [UIColor whiteColor];
     [self.view insertSubview:newLabel aboveSubview:self.logGlowBackdrop];
 
-    [UIView animateWithDuration:0.45
-                          delay:0.05
-         usingSpringWithDamping:0.8
-          initialSpringVelocity:0.3
-                        options:0
+    // ВСЁ — старые строки (сдвиг/масштаб/цвет), исчезающие строки и появление новой —
+    // одним анимационным блоком с одной кривой и одной длительностью: единое синхронное движение
+    [UIView animateWithDuration:duration
+                          delay:0
+         usingSpringWithDamping:0.82
+          initialSpringVelocity:0.35
+                        options:UIViewAnimationOptionCurveEaseInOut
                      animations:^{
+        for (UILabel *lbl in toKeep) {
+            NSInteger gen = lbl.tag + 1;
+            lbl.tag = gen;
+            [self styleLabel:lbl forGeneration:gen baseCenter:baseCenter rowSpacing:rowSpacing];
+        }
+        for (UILabel *lbl in toRemove) {
+            lbl.alpha = 0.0;
+            lbl.transform = CGAffineTransformScale(lbl.transform, 0.9, 0.9);
+        }
         newLabel.alpha = 1.0;
         newLabel.transform = CGAffineTransformIdentity;
-    } completion:nil];
+    } completion:^(BOOL finished) {
+        for (UILabel *lbl in toRemove) {
+            [lbl removeFromSuperview];
+        }
+    }];
 
+    for (UILabel *lbl in toRemove) {
+        [self.logLabelStack removeObject:lbl];
+    }
     [self.logLabelStack addObject:newLabel];
 }
 
 // 4. Финальный экран — имитация системного алерта iOS
 - (void)finishWithResultAlert {
-    // Убираем весь накопленный стек логов и glow-подложку одним плавным затуханием
+    // Убираем весь накопленный стек логов и графику одним плавным затуханием
     for (UILabel *lbl in self.logLabelStack) {
         [UIView animateWithDuration:0.3 animations:^{
             lbl.alpha = 0.0;
@@ -472,13 +606,17 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     [self.logLabelStack removeAllObjects];
 
     UIView *glow = self.logGlowBackdrop;
-    UILabel *counter = self.stepCounterLabel;
+    UIView *ring = self.progressRingContainer;
+    UIView *scan = self.scanLineView;
+    [scan.layer removeAllAnimations];
     [UIView animateWithDuration:0.3 animations:^{
         glow.alpha = 0.0;
-        counter.alpha = 0.0;
+        ring.alpha = 0.0;
+        scan.alpha = 0.0;
     } completion:^(BOOL finished) {
         [glow removeFromSuperview];
-        [counter removeFromSuperview];
+        [ring removeFromSuperview];
+        [scan removeFromSuperview];
     }];
 
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"success??"
