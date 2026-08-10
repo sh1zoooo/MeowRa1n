@@ -3,6 +3,10 @@
 @interface RootViewController ()
 @property (nonatomic, strong) UIView   *infoCard;
 @property (nonatomic, strong) UIButton *jailbreakButton;
+@property (nonatomic, strong) UILabel  *currentLogLabel;
+@property (nonatomic, strong) NSArray<NSString *> *jailbreakSteps;
+@property (nonatomic, assign) NSInteger jailbreakStepIndex;
+@property (nonatomic, assign) BOOL isRunning;
 @end
 
 // Акцент темы — монохромное серебристое свечение
@@ -207,6 +211,7 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     self.jailbreakButton.layer.shadowOpacity = 0.7;
     [self.jailbreakButton addTarget:self action:@selector(btnDown:) forControlEvents:UIControlEventTouchDown];
     [self.jailbreakButton addTarget:self action:@selector(btnUp:) forControlEvents:UIControlEventTouchUpInside|UIControlEventTouchUpOutside];
+    [self.jailbreakButton addTarget:self action:@selector(jailbreakTapped:) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:self.jailbreakButton];
 }
 
@@ -227,6 +232,178 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     [self setRowTag:102 value:@"Unknown"];
     [self setRowTag:103 value:@"Apple Silicon"];
     [self setRowTag:104 value:@"Ready"];
+}
+
+#pragma mark - Jailbreak sequence
+
+- (void)jailbreakTapped:(UIButton *)btn {
+    if (self.isRunning) return;
+    self.isRunning = YES;
+    self.jailbreakButton.userInteractionEnabled = NO;
+
+    self.jailbreakSteps = @[
+        @"Initializing MeowRa1n",
+        @"Scanning device",
+        @"Locating kernel exploit",
+        @"Gaining kernel r/w",
+        @"Bypassing PAC",
+        @"Disabling AMFI",
+        @"Patching sandbox",
+        @"Mounting rootfs",
+        @"Installing MeowSubstrate",
+        @"Deploying Sileo",
+        @"Finalizing patches"
+    ];
+    self.jailbreakStepIndex = 0;
+
+    [self dismissCardThenBegin];
+}
+
+// 1. Карточка и кнопка уходят единым движением (scale + fade + сдвиг), не просто через alpha
+- (void)dismissCardThenBegin {
+    [UIView animateWithDuration:0.4
+                          delay:0
+         usingSpringWithDamping:0.85
+          initialSpringVelocity:0.4
+                        options:UIViewAnimationOptionCurveEaseIn
+                     animations:^{
+        CGAffineTransform t = CGAffineTransformConcat(
+            CGAffineTransformMakeScale(0.82, 0.82),
+            CGAffineTransformMakeTranslation(0, -24));
+        self.infoCard.transform = t;
+        self.infoCard.alpha = 0.0;
+        self.jailbreakButton.transform = CGAffineTransformMakeTranslation(0, 30);
+        self.jailbreakButton.alpha = 0.0;
+    } completion:^(BOOL finished) {
+        [self.infoCard removeFromSuperview];
+        [self showFlashThenStartLog];
+    }];
+}
+
+// 2. Быстрая вспышка ASCII-арта кота по центру экрана
+- (void)showFlashThenStartLog {
+    UIImage *catImage = [UIImage imageNamed:@"cat_ascii"];
+    UIImageView *flash = [[UIImageView alloc] initWithImage:catImage];
+    flash.contentMode = UIViewContentModeScaleAspectFit;
+    flash.alpha = 0.0;
+    CGFloat side = MIN(self.view.bounds.size.width * 0.6, 260);
+    flash.frame = CGRectMake(0, 0, side, side);
+    flash.center = self.view.center;
+    flash.layer.shadowColor = [UIColor whiteColor].CGColor;
+    flash.layer.shadowOffset = CGSizeZero;
+    flash.layer.shadowRadius = 20;
+    flash.layer.shadowOpacity = 0.6;
+    [self.view addSubview:flash];
+
+    // Быстро появляется, чуть держится, быстро уходит — но заметно глазу
+    [UIView animateWithDuration:0.06 animations:^{
+        flash.alpha = 1.0;
+    } completion:^(BOOL finished) {
+        [UIView animateWithDuration:0.09 delay:0.09 options:0 animations:^{
+            flash.alpha = 0.0;
+        } completion:^(BOOL finished2) {
+            [flash removeFromSuperview];
+            [self advanceLogStep];
+        }];
+    }];
+}
+
+// 3. Цепочка логов по центру экрана
+- (void)advanceLogStep {
+    if (self.jailbreakStepIndex >= self.jailbreakSteps.count) {
+        [self finishWithResultAlert];
+        return;
+    }
+    NSString *text = self.jailbreakSteps[self.jailbreakStepIndex];
+    self.jailbreakStepIndex += 1;
+    [self showLogStep:text];
+
+    // Небольшая рандомизация задержки для "живости"
+    CGFloat baseDelay = 0.75;
+    CGFloat jitter = ((arc4random_uniform(300)) / 1000.0) - 0.15; // ±0.15s
+    CGFloat delay = MAX(0.45, baseDelay + jitter);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self advanceLogStep];
+    });
+}
+
+- (void)showLogStep:(NSString *)text {
+    // Уводим текущую крупную строку: она чуть выше, мельче и серее, затем полностью исчезает
+    if (self.currentLogLabel) {
+        UILabel *outgoing = self.currentLogLabel;
+        [UIView animateWithDuration:0.35 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+            outgoing.transform = CGAffineTransformMakeScale(0.6, 0.6);
+            outgoing.center = CGPointMake(outgoing.center.x, outgoing.center.y - 34);
+            outgoing.textColor = [UIColor colorWithWhite:0.55 alpha:1.0];
+            outgoing.layer.shadowOpacity = 0.0;
+        } completion:^(BOOL finished) {
+            [UIView animateWithDuration:0.25 delay:0.12 options:0 animations:^{
+                outgoing.alpha = 0.0;
+            } completion:^(BOOL finished2) {
+                [outgoing removeFromSuperview];
+            }];
+        }];
+    }
+
+    UILabel *newLabel = [[UILabel alloc] init];
+    newLabel.text = text;
+    newLabel.font = [UIFont systemFontOfSize:26 weight:UIFontWeightBold];
+    newLabel.textColor = [UIColor whiteColor];
+    newLabel.textAlignment = NSTextAlignmentCenter;
+    newLabel.numberOfLines = 2;
+    newLabel.layer.shadowColor = [UIColor whiteColor].CGColor;
+    newLabel.layer.shadowOffset = CGSizeZero;
+    newLabel.layer.shadowRadius = 10;
+    newLabel.layer.shadowOpacity = 0.85;
+    newLabel.layer.masksToBounds = NO;
+    newLabel.alpha = 0.0;
+    newLabel.transform = CGAffineTransformMakeScale(0.85, 0.85);
+
+    CGFloat W = self.view.bounds.size.width;
+    newLabel.frame = CGRectMake(24, 0, W - 48, 60);
+    newLabel.center = CGPointMake(self.view.center.x, self.view.center.y);
+    [self.view addSubview:newLabel];
+
+    [UIView animateWithDuration:0.35
+                          delay:0.05
+         usingSpringWithDamping:0.8
+          initialSpringVelocity:0.3
+                        options:0
+                     animations:^{
+        newLabel.alpha = 1.0;
+        newLabel.transform = CGAffineTransformIdentity;
+    } completion:nil];
+
+    self.currentLogLabel = newLabel;
+}
+
+// 4. Финальный экран — имитация системного алерта iOS
+- (void)finishWithResultAlert {
+    // Убираем последнюю лог-строку тем же движением "наружу"
+    if (self.currentLogLabel) {
+        UILabel *outgoing = self.currentLogLabel;
+        self.currentLogLabel = nil;
+        [UIView animateWithDuration:0.3 animations:^{
+            outgoing.alpha = 0.0;
+            outgoing.transform = CGAffineTransformMakeScale(0.6, 0.6);
+        } completion:^(BOOL finished) {
+            [outgoing removeFromSuperview];
+        }];
+    }
+
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"success??"
+                                                                     message:nil
+                                                              preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertAction *ok = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+        // TODO: доделаем позже — пока по нажатию OK ничего не происходит
+        self.isRunning = NO;
+        self.jailbreakButton.userInteractionEnabled = YES;
+    }];
+    [alert addAction:ok];
+
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self presentViewController:alert animated:YES completion:nil];
+    });
 }
 
 @end
