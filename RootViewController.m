@@ -3,7 +3,9 @@
 @interface RootViewController ()
 @property (nonatomic, strong) UIView   *infoCard;
 @property (nonatomic, strong) UIButton *jailbreakButton;
-@property (nonatomic, strong) UILabel  *currentLogLabel;
+@property (nonatomic, strong) NSMutableArray<UILabel *> *logLabelStack;
+@property (nonatomic, strong) UILabel  *stepCounterLabel;
+@property (nonatomic, strong) UIView   *logGlowBackdrop;
 @property (nonatomic, strong) NSArray<NSString *> *jailbreakSteps;
 @property (nonatomic, assign) NSInteger jailbreakStepIndex;
 @property (nonatomic, assign) BOOL isRunning;
@@ -239,7 +241,7 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
 - (void)jailbreakTapped:(UIButton *)btn {
     if (self.isRunning) return;
     self.isRunning = YES;
-    self.jailbreakButton.userInteractionEnabled = NO;
+    self.logLabelStack = [NSMutableArray array];
 
     self.jailbreakSteps = @[
         @"Initializing MeowRa1n",
@@ -256,10 +258,20 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     ];
     self.jailbreakStepIndex = 0;
 
+    [self setButtonRunningState:YES];
     [self dismissCardThenBegin];
 }
 
-// 1. Карточка и кнопка уходят единым движением (scale + fade + сдвиг), не просто через alpha
+// Кнопка больше не исчезает — просто тускнеет и перестаёт быть кликабельной
+- (void)setButtonRunningState:(BOOL)running {
+    self.jailbreakButton.userInteractionEnabled = !running;
+    [UIView animateWithDuration:0.35 animations:^{
+        self.jailbreakButton.alpha = running ? 0.4 : 1.0;
+        self.jailbreakButton.layer.shadowOpacity = running ? 0.1 : 0.7;
+    }];
+}
+
+// 1. Карточка уходит единым движением (scale + fade + сдвиг), кнопка остаётся на месте
 - (void)dismissCardThenBegin {
     [UIView animateWithDuration:0.4
                           delay:0
@@ -272,43 +284,84 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
             CGAffineTransformMakeTranslation(0, -24));
         self.infoCard.transform = t;
         self.infoCard.alpha = 0.0;
-        self.jailbreakButton.transform = CGAffineTransformMakeTranslation(0, 30);
-        self.jailbreakButton.alpha = 0.0;
     } completion:^(BOOL finished) {
         [self.infoCard removeFromSuperview];
         [self showFlashThenStartLog];
     }];
 }
 
-// 2. Быстрая вспышка ASCII-арта кота по центру экрана
+// 2. Вспышка ASCII-арта кота по центру экрана — крупная (~2.5x прежнего размера)
 - (void)showFlashThenStartLog {
     UIImage *catImage = [UIImage imageNamed:@"cat_ascii"];
     UIImageView *flash = [[UIImageView alloc] initWithImage:catImage];
     flash.contentMode = UIViewContentModeScaleAspectFit;
     flash.alpha = 0.0;
-    CGFloat side = MIN(self.view.bounds.size.width * 0.6, 260);
+    CGFloat side = MIN(self.view.bounds.size.width * 0.92, 650);
     flash.frame = CGRectMake(0, 0, side, side);
     flash.center = self.view.center;
     flash.layer.shadowColor = [UIColor whiteColor].CGColor;
     flash.layer.shadowOffset = CGSizeZero;
-    flash.layer.shadowRadius = 20;
-    flash.layer.shadowOpacity = 0.6;
+    flash.layer.shadowRadius = 32;
+    flash.layer.shadowOpacity = 0.55;
     [self.view addSubview:flash];
 
-    // Быстро появляется, чуть держится, быстро уходит — но заметно глазу
-    [UIView animateWithDuration:0.06 animations:^{
+    [UIView animateWithDuration:0.07 animations:^{
         flash.alpha = 1.0;
     } completion:^(BOOL finished) {
-        [UIView animateWithDuration:0.09 delay:0.09 options:0 animations:^{
+        [UIView animateWithDuration:0.12 delay:0.12 options:0 animations:^{
             flash.alpha = 0.0;
         } completion:^(BOOL finished2) {
             [flash removeFromSuperview];
+            [self setupLogGlowBackdrop];
+            [self setupStepCounter];
             [self advanceLogStep];
         }];
     }];
 }
 
-// 3. Цепочка логов по центру экрана
+// Мягкое радиальное свечение позади лог-стека — для атмосферы, не голый текст на фоне
+- (void)setupLogGlowBackdrop {
+    CGFloat size = MIN(self.view.bounds.size.width, self.view.bounds.size.height) * 0.9;
+    UIView *glow = [[UIView alloc] initWithFrame:CGRectMake(0, 0, size, size)];
+    glow.center = CGPointMake(self.view.center.x, self.view.center.y - 10);
+    glow.userInteractionEnabled = NO;
+    glow.alpha = 0.0;
+
+    CAGradientLayer *radial = [CAGradientLayer layer];
+    radial.type = kCAGradientLayerRadial;
+    radial.frame = glow.bounds;
+    radial.colors = @[
+        (id)[UIColor colorWithWhite:1.0 alpha:0.10].CGColor,
+        (id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
+    ];
+    radial.startPoint = CGPointMake(0.5, 0.5);
+    radial.endPoint   = CGPointMake(1.0, 1.0);
+    [glow.layer addSublayer:radial];
+
+    [self.view insertSubview:glow belowSubview:self.jailbreakButton];
+    self.logGlowBackdrop = glow;
+    [UIView animateWithDuration:0.5 animations:^{
+        glow.alpha = 1.0;
+    }];
+}
+
+- (void)setupStepCounter {
+    UILabel *counter = [[UILabel alloc] init];
+    counter.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
+    counter.textColor = [UIColor colorWithWhite:0.6 alpha:1.0];
+    counter.textAlignment = NSTextAlignmentCenter;
+    counter.alpha = 0.0;
+    CGFloat W = self.view.bounds.size.width;
+    CGFloat H = self.view.bounds.size.height;
+    counter.frame = CGRectMake(0, H - 130, W, 20);
+    [self.view addSubview:counter];
+    self.stepCounterLabel = counter;
+    [UIView animateWithDuration:0.4 animations:^{
+        counter.alpha = 1.0;
+    }];
+}
+
+// 3. Цепочка логов по центру экрана — старые строки не пропадают, а копятся стеком выше
 - (void)advanceLogStep {
     if (self.jailbreakStepIndex >= self.jailbreakSteps.count) {
         [self finishWithResultAlert];
@@ -316,55 +369,83 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     }
     NSString *text = self.jailbreakSteps[self.jailbreakStepIndex];
     self.jailbreakStepIndex += 1;
+
+    self.stepCounterLabel.text = [NSString stringWithFormat:@"%ld / %ld",
+                                   (long)self.jailbreakStepIndex, (long)self.jailbreakSteps.count];
     [self showLogStep:text];
 
-    // Небольшая рандомизация задержки для "живости"
-    CGFloat baseDelay = 0.75;
-    CGFloat jitter = ((arc4random_uniform(300)) / 1000.0) - 0.15; // ±0.15s
-    CGFloat delay = MAX(0.45, baseDelay + jitter);
+    // Держим строку на экране заметно дольше, чтобы не выглядело фейково-быстро
+    CGFloat baseDelay = 1.7;
+    CGFloat jitter = ((arc4random_uniform(500)) / 1000.0) - 0.25; // ±0.25s
+    CGFloat delay = MAX(1.2, baseDelay + jitter);
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self advanceLogStep];
     });
 }
 
+// Параметры внешнего вида для каждого "поколения" строки в стеке истории (0 = самая новая)
+- (void)styleLabel:(UILabel *)lbl forGeneration:(NSInteger)gen baseCenter:(CGPoint)baseCenter {
+    CGFloat rowSpacing = 40.0;
+    CGFloat scale       = MAX(0.42, 1.0 - gen * 0.16);
+    CGFloat grayLevel   = MAX(0.30, 1.0 - gen * 0.16);
+    CGFloat labelAlpha  = MAX(0.28, 1.0 - gen * 0.16);
+    CGFloat shadowOp    = MAX(0.0, 0.85 - gen * 0.28);
+
+    lbl.transform = CGAffineTransformMakeScale(scale, scale);
+    lbl.center = CGPointMake(baseCenter.x, baseCenter.y - gen * rowSpacing);
+    lbl.textColor = [UIColor colorWithWhite:grayLevel alpha:1.0];
+    lbl.alpha = labelAlpha;
+    lbl.layer.shadowOpacity = shadowOp;
+}
+
 - (void)showLogStep:(NSString *)text {
-    // Уводим текущую крупную строку: она чуть выше, мельче и серее, затем полностью исчезает
-    if (self.currentLogLabel) {
-        UILabel *outgoing = self.currentLogLabel;
-        [UIView animateWithDuration:0.35 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
-            outgoing.transform = CGAffineTransformMakeScale(0.6, 0.6);
-            outgoing.center = CGPointMake(outgoing.center.x, outgoing.center.y - 34);
-            outgoing.textColor = [UIColor colorWithWhite:0.55 alpha:1.0];
-            outgoing.layer.shadowOpacity = 0.0;
+    NSString *bulleted = [NSString stringWithFormat:@"• %@", text];
+    CGPoint baseCenter = CGPointMake(self.view.center.x, self.view.center.y - 10);
+    NSInteger maxVisibleGenerations = 4; // 0..4 = до 5 строк одновременно на экране
+
+    // Продвигаем все существующие строки на одно "поколение" выше по стеку
+    NSMutableArray<UILabel *> *toRemove = [NSMutableArray array];
+    for (UILabel *lbl in self.logLabelStack) {
+        NSInteger gen = lbl.tag + 1;
+        lbl.tag = gen;
+        if (gen > maxVisibleGenerations) {
+            [toRemove addObject:lbl];
+            continue;
+        }
+        [UIView animateWithDuration:0.5 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+            [self styleLabel:lbl forGeneration:gen baseCenter:baseCenter];
+        } completion:nil];
+    }
+    for (UILabel *lbl in toRemove) {
+        [self.logLabelStack removeObject:lbl];
+        [UIView animateWithDuration:0.4 animations:^{
+            lbl.alpha = 0.0;
         } completion:^(BOOL finished) {
-            [UIView animateWithDuration:0.25 delay:0.12 options:0 animations:^{
-                outgoing.alpha = 0.0;
-            } completion:^(BOOL finished2) {
-                [outgoing removeFromSuperview];
-            }];
+            [lbl removeFromSuperview];
         }];
     }
 
+    // Новая строка — крупная, белая, появляется в центре (поколение 0)
     UILabel *newLabel = [[UILabel alloc] init];
-    newLabel.text = text;
+    newLabel.tag = 0;
+    newLabel.text = bulleted;
     newLabel.font = [UIFont systemFontOfSize:26 weight:UIFontWeightBold];
-    newLabel.textColor = [UIColor whiteColor];
     newLabel.textAlignment = NSTextAlignmentCenter;
     newLabel.numberOfLines = 2;
     newLabel.layer.shadowColor = [UIColor whiteColor].CGColor;
     newLabel.layer.shadowOffset = CGSizeZero;
     newLabel.layer.shadowRadius = 10;
-    newLabel.layer.shadowOpacity = 0.85;
     newLabel.layer.masksToBounds = NO;
-    newLabel.alpha = 0.0;
-    newLabel.transform = CGAffineTransformMakeScale(0.85, 0.85);
 
     CGFloat W = self.view.bounds.size.width;
     newLabel.frame = CGRectMake(24, 0, W - 48, 60);
-    newLabel.center = CGPointMake(self.view.center.x, self.view.center.y);
-    [self.view addSubview:newLabel];
+    newLabel.center = baseCenter;
+    newLabel.alpha = 0.0;
+    newLabel.transform = CGAffineTransformMakeScale(0.85, 0.85);
+    newLabel.textColor = [UIColor whiteColor];
+    [self.view insertSubview:newLabel aboveSubview:self.logGlowBackdrop];
 
-    [UIView animateWithDuration:0.35
+    [UIView animateWithDuration:0.45
                           delay:0.05
          usingSpringWithDamping:0.8
           initialSpringVelocity:0.3
@@ -374,22 +455,31 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
         newLabel.transform = CGAffineTransformIdentity;
     } completion:nil];
 
-    self.currentLogLabel = newLabel;
+    [self.logLabelStack addObject:newLabel];
 }
 
 // 4. Финальный экран — имитация системного алерта iOS
 - (void)finishWithResultAlert {
-    // Убираем последнюю лог-строку тем же движением "наружу"
-    if (self.currentLogLabel) {
-        UILabel *outgoing = self.currentLogLabel;
-        self.currentLogLabel = nil;
+    // Убираем весь накопленный стек логов и glow-подложку одним плавным затуханием
+    for (UILabel *lbl in self.logLabelStack) {
         [UIView animateWithDuration:0.3 animations:^{
-            outgoing.alpha = 0.0;
-            outgoing.transform = CGAffineTransformMakeScale(0.6, 0.6);
+            lbl.alpha = 0.0;
+            lbl.transform = CGAffineTransformScale(lbl.transform, 0.85, 0.85);
         } completion:^(BOOL finished) {
-            [outgoing removeFromSuperview];
+            [lbl removeFromSuperview];
         }];
     }
+    [self.logLabelStack removeAllObjects];
+
+    UIView *glow = self.logGlowBackdrop;
+    UILabel *counter = self.stepCounterLabel;
+    [UIView animateWithDuration:0.3 animations:^{
+        glow.alpha = 0.0;
+        counter.alpha = 0.0;
+    } completion:^(BOOL finished) {
+        [glow removeFromSuperview];
+        [counter removeFromSuperview];
+    }];
 
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"success??"
                                                                      message:nil
@@ -397,7 +487,7 @@ static inline UIColor *MRNeonAccent(CGFloat alpha) {
     UIAlertAction *ok = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
         // TODO: доделаем позже — пока по нажатию OK ничего не происходит
         self.isRunning = NO;
-        self.jailbreakButton.userInteractionEnabled = YES;
+        [self setButtonRunningState:NO];
     }];
     [alert addAction:ok];
 
